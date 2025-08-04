@@ -1,0 +1,228 @@
+# ===== PYTHON =====
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# ===== VIRTUAL ENVIRONMENTS =====
+# Virtual environment directories
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+.env/
+.virtualenv/
+
+# Conda environments
+.conda/
+
+# ===== AI/ML MODELS & CACHE =====
+# Hugging Face models cache (can be very large)
+.cache/
+.huggingface/
+models/
+*.bin
+*.safetensors
+*.h5
+*.onnx
+*.pb
+
+# PyTorch model files
+*.pth
+*.pt
+
+# TensorFlow model files
+*.ckpt
+*.ckpt.*
+checkpoint
+model.ckpt.*
+
+# Model directories (if you download models locally)
+ai-forever/
+t5-large-spell/
+sentence-transformers/
+
+# ===== DATABASES =====
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+custom_dictionary.db
+
+# ===== LOGS =====
+# Log files
+*.log
+logs/
+spellchecker.log
+
+# ===== CONFIGURATION & SECRETS =====
+# Environment variables
+.env
+.env.local
+.env.production
+.env.staging
+config.yaml
+config.json
+
+# Secrets and API keys
+secrets.yaml
+secrets.json
+*.key
+*.pem
+*.crt
+
+# ===== CACHE FILES =====
+# Redis dump
+dump.rdb
+
+# Application cache
+cache/
+.cache/
+*.cache
+
+# ===== IDE & EDITOR FILES =====
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===== OS FILES =====
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ===== TEMPORARY FILES =====
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+temp/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# ===== DOCUMENTATION BUILD =====
+# Sphinx documentation
+docs/_build/
+.readthedocs.yml
+
+# ===== DOCKER =====
+# Docker
+Dockerfile.dev
+docker-compose.override.yml
+.dockerignore
+
+# ===== FASTAPI SPECIFIC =====
+# FastAPI static files (if serving static content)
+static/
+uploads/
+
+# ===== PROJECT SPECIFIC =====
+# Test data
+test_data/
+sample_data/
+*.csv
+*.json
+*.txt
+
+# Backup files
+*.bak
+*.backup
+
+# Performance monitoring files
+*.prof
+*.profile
+
+# ===== LARGE FILES =====
+# Prevent accidentally committing large files
+*.zip
+*.tar.gz
+*.rar
+*.7z
