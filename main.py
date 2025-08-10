@@ -1,4 +1,4 @@
-# main.py - Production-Ready Intelligent Spell Checker
+# main.py - Complete Hugosave Brand-Optimized Spell Checker with Quantization
 import asyncio
 import logging
 import time
@@ -10,6 +10,7 @@ import hashlib
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import os
 
 # Core imports
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
@@ -63,10 +64,14 @@ except ImportError:
 
 # --- CONFIGURATION MANAGEMENT ---
 class Config:
-    # Model settings
-    PRIMARY_MODEL = 'ai-forever/T5-large-spell'
-    BACKUP_MODEL = 't5-small'
+    # Model settings - Hugosave optimized
+    PRIMARY_MODEL = os.getenv('PRIMARY_MODEL', './hugosave-quantized-model')
+    FALLBACK_MODEL = 'ai-forever/T5-large-spell'
     SEMANTIC_MODEL = 'all-MiniLM-L6-v2'
+    
+    # Quantization settings
+    QUANTIZATION_METHOD = os.getenv('QUANTIZATION_METHOD', 'dynamic')
+    USE_HUGOSAVE_MODEL = os.getenv('USE_HUGOSAVE_MODEL', 'true').lower() == 'true'
     
     # Performance settings
     MAX_WORKERS = 4
@@ -81,8 +86,8 @@ class Config:
     MAX_EDIT_DISTANCE = 3
     
     # Redis settings (optional)
-    REDIS_URL = "redis://localhost:6379"
-    USE_REDIS = False
+    REDIS_URL = os.getenv('REDIS_URL', "redis://localhost:6379")
+    USE_REDIS = os.getenv('USE_REDIS', 'false').lower() == 'true'
     
     # Security
     RATE_LIMIT = 1000  # requests per hour per IP
@@ -93,7 +98,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('spellchecker.log'),
+        logging.FileHandler('hugosave_spellchecker.log'),
         logging.StreamHandler()
     ]
 )
@@ -107,9 +112,10 @@ class PerformanceMonitor:
         self.error_count = 0
         self.cache_hits = 0
         self.cache_misses = 0
+        self.hugosave_corrections = 0
         self.lock = threading.Lock()
     
-    def record_request(self, processing_time: float, from_cache: bool = False, error: bool = False):
+    def record_request(self, processing_time: float, from_cache: bool = False, error: bool = False, hugosave_correction: bool = False):
         with self.lock:
             self.request_count += 1
             self.total_processing_time += processing_time
@@ -119,6 +125,8 @@ class PerformanceMonitor:
                 self.cache_hits += 1
             else:
                 self.cache_misses += 1
+            if hugosave_correction:
+                self.hugosave_corrections += 1
     
     def get_stats(self) -> Dict:
         with self.lock:
@@ -127,8 +135,107 @@ class PerformanceMonitor:
                 "average_processing_time": self.total_processing_time / max(self.request_count, 1),
                 "error_rate": self.error_count / max(self.request_count, 1),
                 "cache_hit_rate": self.cache_hits / max(self.request_count, 1),
+                "hugosave_correction_rate": self.hugosave_corrections / max(self.request_count, 1),
                 "uptime_minutes": (datetime.now() - start_time).total_seconds() / 60
             }
+
+# --- HUGOSAVE BRAND GUIDELINES MANAGER ---
+class HugosaveBrandManager:
+    def __init__(self):
+        self.brand_terms = self._load_hugosave_terms()
+        self.ux_writing_rules = self._load_ux_rules()
+        self.style_rules = self._load_style_rules()
+    
+    def _load_hugosave_terms(self) -> Dict[str, str]:
+        """Load Hugosave brand terms"""
+        return {
+            'hugosave': 'Hugosave',
+            'hugohero': 'Hugohero',
+            'hugoheroes': 'Hugoheroes',
+            'wealthcare': 'Wealthcare',
+            'wealthcare®': 'Wealthcare®',
+            'homescreen': 'Homescreen',
+            'save account': 'Save Account',
+            'spend account': 'Spend Account',
+            'cash account': 'Cash Account',
+            'multi-currency account': 'Multi-currency Account',
+            'debit card': 'Debit Card',
+            'hugosave visa platinum debit card': 'Hugosave Visa Platinum Debit Card',
+            'pots': 'Pots',
+            'rewards centre': 'Rewards Centre',
+            'quests': 'Quests',
+            'referrals': 'Referrals',
+            'roundups': 'Roundups',
+            'auto top-up': 'Auto Top-up',
+            'invest-as-you-spend': 'Invest-as-you-spend',
+            'net worth': 'Net Worth',
+            'portfolio composition': 'Portfolio Composition',
+            'investment personality quiz': 'Investment Personality Quiz',
+            'defender': 'Defender',
+            'mediator': 'Mediator',
+            'adventurer': 'Adventurer',
+            'kyc': 'KYC',
+            'singpass': 'Singpass',
+            'edda': 'eDDA',
+            't&cs': 'T&Cs',
+            'hugohub': 'HugoHub',
+            'customer': 'Customer',
+            'end-customer': 'End-Customer',
+            'wallet': 'Wallet'
+        }
+    
+    def _load_ux_rules(self) -> Dict[str, str]:
+        """Load UX writing rules"""
+        return {
+            'login': 'log in',
+            'logout': 'log out',
+            'signup': 'sign up',
+            'setup': 'set up',
+            'backup': 'back up',
+            'click on': 'select',
+            'please click': 'select',
+            'kindly': '',
+            'utilize': 'use',
+            'facilitate': 'help',
+            'commence': 'start',
+            'terminate': 'end'
+        }
+    
+    def _load_style_rules(self) -> Dict[str, str]:
+        """Load British English style rules"""
+        return {
+            'color': 'colour',
+            'realize': 'realise',
+            'organize': 'organise',
+            'analyze': 'analyse',
+            'center': 'centre',
+            'favor': 'favour',
+            'honor': 'honour',
+            'labor': 'labour',
+            'neighbor': 'neighbour'
+        }
+    
+    def get_hugosave_correction(self, word: str) -> Optional[Tuple[str, str, float]]:
+        """Get Hugosave-specific correction"""
+        word_lower = word.lower()
+        
+        # Check brand terms
+        if word_lower in self.brand_terms:
+            return (self.brand_terms[word_lower], 'hugosave_brand', 1.0)
+        
+        # Check UX writing rules
+        if word_lower in self.ux_writing_rules:
+            return (self.ux_writing_rules[word_lower], 'ux_writing', 0.95)
+        
+        # Check style rules
+        if word_lower in self.style_rules:
+            return (self.style_rules[word_lower], 'british_english', 0.9)
+        
+        return None
+    
+    def is_hugosave_term(self, word: str) -> bool:
+        """Check if word is a Hugosave term"""
+        return word.lower() in {**self.brand_terms, **self.ux_writing_rules, **self.style_rules}
 
 # --- ENHANCED CACHING SYSTEM ---
 class CacheManager:
@@ -148,7 +255,7 @@ class CacheManager:
     
     def _get_cache_key(self, text: str, language: str = "en") -> str:
         """Generate consistent cache key"""
-        key_data = f"{text.lower().strip()}:{language}"
+        key_data = f"{text.lower().strip()}:{language}:hugosave"
         return hashlib.md5(key_data.encode()).hexdigest()
     
     async def get(self, text: str, language: str = "en") -> Optional[Dict]:
@@ -189,7 +296,7 @@ class CacheManager:
 # --- CUSTOM DICTIONARY MANAGER ---
 class CustomDictionaryManager:
     def __init__(self):
-        self.db_path = "custom_dictionary.db"
+        self.db_path = "hugosave_dictionary.db"
         self.init_database()
         self.custom_words = set()
         self.domain_corrections = {}
@@ -265,100 +372,152 @@ class CustomDictionaryManager:
         """Get custom correction if available"""
         return self.domain_corrections.get(word.lower())
 
-# --- ENHANCED AI MODELS MANAGER ---
-class AIModelsManager:
-    def __init__(self):
-        self.primary_model = None
-        self.primary_tokenizer = None
-        self.semantic_model = None
-        self.backup_model = None
-        self.backup_tokenizer = None
+# --- HUGOSAVE QUANTIZED AI MODELS MANAGER ---
+class HugosaveQuantizedAIManager:
+    def __init__(self, quantized_model_path: str = None):
+        self.model_path = quantized_model_path or Config.PRIMARY_MODEL
+        self.quantized_model = None
+        self.tokenizer = None
         self.model_lock = threading.Lock()
-        self.load_models()
+        self.model_info = {}
+        
+        self.load_hugosave_model()
     
-    def load_models(self):
-        """Load all AI models"""
+    def load_hugosave_model(self):
+        """Load Hugosave-specific quantized model"""
+        logger.info("🚀 Loading Hugosave quantized model...")
+        
         try:
-            logger.info("Loading primary T5 model...")
-            self.primary_model = T5ForConditionalGeneration.from_pretrained(Config.PRIMARY_MODEL)
-            self.primary_tokenizer = T5Tokenizer.from_pretrained(Config.PRIMARY_MODEL)
+            # Check if Hugosave model exists
+            if os.path.exists(self.model_path) and Config.USE_HUGOSAVE_MODEL:
+                self._load_quantized_hugosave_model()
+            else:
+                logger.warning("Hugosave model not found, falling back to base model")
+                self._load_fallback_model()
+                
+        except Exception as e:
+            logger.error(f"Error loading Hugosave model: {e}")
+            logger.info("Loading fallback model...")
+            self._load_fallback_model()
+    
+    def _load_quantized_hugosave_model(self):
+        """Load the quantized Hugosave model"""
+        try:
+            self.tokenizer = T5Tokenizer.from_pretrained(self.model_path)
             
-            if SEMANTIC_MODEL_AVAILABLE:
-                logger.info("Loading semantic similarity model...")
-                self.semantic_model = SentenceTransformer(Config.SEMANTIC_MODEL)
+            # Try to load quantized model state
+            quantized_state_path = f"{self.model_path}/quantized_model.pth"
+            if os.path.exists(quantized_state_path):
+                # Load base model and apply quantization
+                base_model = T5ForConditionalGeneration.from_pretrained(
+                    self.model_path.replace('-quantized', '-fine-tuned')
+                )
+                
+                self.quantized_model = torch.quantization.quantize_dynamic(
+                    base_model,
+                    {torch.nn.Linear, torch.nn.Embedding},
+                    dtype=torch.qint8
+                )
+            else:
+                # Load model and apply quantization
+                base_model = T5ForConditionalGeneration.from_pretrained(self.model_path)
+                self.quantized_model = torch.quantization.quantize_dynamic(
+                    base_model,
+                    {torch.nn.Linear, torch.nn.Embedding},
+                    dtype=torch.qint8
+                )
             
-            logger.info("All models loaded successfully!")
+            self.model_info = {
+                'model_type': 'hugosave_quantized',
+                'quantization': 'dynamic_int8',
+                'hugosave_optimized': True,
+                'memory_footprint': self._get_model_size_mb(self.quantized_model)
+            }
+            
+            logger.info("✅ Hugosave quantized model loaded successfully")
             
         except Exception as e:
-            logger.error(f"Error loading models: {e}")
+            logger.error(f"Error loading quantized Hugosave model: {e}")
             raise
     
+    def _load_fallback_model(self):
+        """Load fallback model if Hugosave model fails"""
+        self.tokenizer = T5Tokenizer.from_pretrained(Config.FALLBACK_MODEL)
+        base_model = T5ForConditionalGeneration.from_pretrained(Config.FALLBACK_MODEL)
+        
+        # Apply quantization to fallback model
+        self.quantized_model = torch.quantization.quantize_dynamic(
+            base_model,
+            {torch.nn.Linear, torch.nn.Embedding},
+            dtype=torch.qint8
+        )
+        
+        self.model_info = {
+            'model_type': 'fallback_quantized',
+            'quantization': 'dynamic_int8',
+            'hugosave_optimized': False,
+            'memory_footprint': self._get_model_size_mb(self.quantized_model)
+        }
+        
+        logger.info("✅ Fallback quantized model loaded")
+    
     def get_ai_suggestions(self, word: str, context: str = "", num_suggestions: int = 5) -> List[Tuple[str, float]]:
-        """Get AI suggestions with confidence scores"""
+        """Get suggestions using Hugosave-optimized quantized model"""
         suggestions = []
         
-        # Prepare input with context if available
+        # Enhanced input format for Hugosave context
         if context:
-            input_text = f"Context: {context}. Correct spelling: {word}"
+            input_text = f"Context: {context}. Spelling correction: {word}"
         else:
-            input_text = f"Correct spelling: {word}"
+            input_text = f"Spelling correction: {word}"
         
         try:
             with self.model_lock:
-                inputs = self.primary_tokenizer.encode(
-                    input_text, 
-                    return_tensors='pt', 
-                    max_length=128, 
+                inputs = self.tokenizer.encode(
+                    input_text,
+                    return_tensors='pt',
+                    max_length=128,
                     truncation=True
                 )
                 
                 with torch.no_grad():
-                    outputs = self.primary_model.generate(
+                    outputs = self.quantized_model.generate(
                         inputs,
-                        max_length=inputs.shape[-1] + 15,
-                        num_beams=num_suggestions * 2,
-                        num_return_sequences=num_suggestions,
+                        max_length=inputs.shape[-1] + 10,
+                        num_beams=3,  # Optimized for speed
+                        num_return_sequences=min(num_suggestions, 3),
                         early_stopping=True,
-                        repetition_penalty=2.0,
-                        do_sample=False
+                        repetition_penalty=1.5,
+                        do_sample=False,
+                        use_cache=True
                     )
                 
-                # Extract suggestions
-                for sequence in outputs:
-                    decoded = self.primary_tokenizer.decode(sequence, skip_special_tokens=True)
+                for output in outputs:
+                    decoded = self.tokenizer.decode(output, skip_special_tokens=True)
                     cleaned = self._clean_ai_output(decoded, word)
                     if cleaned and self._is_valid_suggestion(cleaned, word):
-                        confidence = 0.8  # Default confidence
+                        # Higher confidence for Hugosave-trained model
+                        confidence = 0.95 if self.model_info.get('hugosave_optimized') else 0.8
                         suggestions.append((cleaned, confidence))
         
         except Exception as e:
-            logger.error(f"AI suggestion error: {e}")
+            logger.error(f"Hugosave AI suggestion error: {e}")
         
         return suggestions[:num_suggestions]
     
-    def get_semantic_similarity(self, word1: str, word2: str) -> float:
-        """Get semantic similarity between two words"""
-        if not SEMANTIC_MODEL_AVAILABLE or not self.semantic_model:
-            return 0.0
-        
-        try:
-            embeddings = self.semantic_model.encode([word1, word2])
-            similarity = np.dot(embeddings[0], embeddings[1]) / (
-                np.linalg.norm(embeddings[0]) * np.linalg.norm(embeddings[1])
-            )
-            return float(similarity)
-        except Exception as e:
-            logger.error(f"Semantic similarity error: {e}")
-            return 0.0
+    def _get_model_size_mb(self, model):
+        """Calculate model size in MB"""
+        param_size = sum(p.nelement() * p.element_size() for p in model.parameters())
+        buffer_size = sum(b.nelement() * b.element_size() for b in model.buffers())
+        return round((param_size + buffer_size) / 1024 / 1024, 2)
     
     def _clean_ai_output(self, raw_output: str, original: str) -> str:
         """Enhanced cleaning of AI output"""
         cleaned = raw_output.strip()
         
-        # Remove prefixes
         prefixes = [
-            "Context:", "Correct spelling:", "Fix:", "Spelling correction:",
-            "Corrected:", "Should be:", "->"
+            "Context:", "Spelling correction:", "Fix:", "Corrected:",
+            "Should be:", "->", "Brand correction:", "Hugosave:"
         ]
         
         for prefix in prefixes:
@@ -366,7 +525,6 @@ class AIModelsManager:
                 cleaned = cleaned[len(prefix):].strip()
                 break
         
-        # Extract first valid word
         words = re.findall(r'\b[a-zA-Z]+\b', cleaned)
         if words:
             candidate = words[0].lower()
@@ -380,20 +538,19 @@ class AIModelsManager:
         if not suggestion or len(suggestion) < 2:
             return False
         
-        # Filter obvious artifacts
-        invalid_words = {'spelling', 'correct', 'fix', 'context', 'should', 'be'}
+        invalid_words = {'spelling', 'correct', 'fix', 'context', 'should', 'be', 'hugosave', 'brand'}
         if suggestion.lower() in invalid_words:
             return False
         
-        # Check minimum similarity
         similarity = SequenceMatcher(None, original.lower(), suggestion.lower()).ratio()
         return similarity > Config.MIN_SIMILARITY
 
 # --- ADVANCED SUGGESTION ENGINE ---
 class AdvancedSuggestionEngine:
-    def __init__(self, ai_manager: AIModelsManager, dict_manager: CustomDictionaryManager):
+    def __init__(self, ai_manager: HugosaveQuantizedAIManager, dict_manager: CustomDictionaryManager, brand_manager: HugosaveBrandManager):
         self.ai_manager = ai_manager
         self.dict_manager = dict_manager
+        self.brand_manager = brand_manager
         
         # Initialize dictionaries
         if ENCHANT_AVAILABLE:
@@ -408,10 +565,22 @@ class AdvancedSuggestionEngine:
             logger.warning("Enchant not available")
     
     def get_comprehensive_suggestions(self, word: str, context: str = "", language: str = "en") -> List[Dict]:
-        """Get comprehensive suggestions from all sources"""
+        """Get comprehensive suggestions with Hugosave brand priority"""
         suggestions = []
         
-        # 1. Check custom corrections first
+        # 1. PRIORITY: Check Hugosave brand guidelines first
+        hugosave_correction = self.brand_manager.get_hugosave_correction(word)
+        if hugosave_correction:
+            correct_word, category, confidence = hugosave_correction
+            suggestions.append({
+                'word': correct_word,
+                'confidence': confidence,
+                'source': f'hugosave_{category}',
+                'edit_distance': self._edit_distance(word, correct_word),
+                'hugosave_brand': True
+            })
+        
+        # 2. Check custom corrections
         custom_correction = self.dict_manager.get_custom_correction(word)
         if custom_correction:
             suggestions.append({
@@ -421,27 +590,27 @@ class AdvancedSuggestionEngine:
                 'edit_distance': self._edit_distance(word, custom_correction[0])
             })
         
-        # 2. Dictionary suggestions
+        # 3. Dictionary suggestions
         dict_suggestions = self._get_dictionary_suggestions(word)
         suggestions.extend(dict_suggestions)
         
-        # 3. AI suggestions with context
+        # 4. AI suggestions with context (Hugosave-optimized)
         ai_suggestions = self.ai_manager.get_ai_suggestions(word, context)
         for suggestion, confidence in ai_suggestions:
             suggestions.append({
                 'word': suggestion,
                 'confidence': confidence,
-                'source': 'ai',
+                'source': 'hugosave_ai',
                 'edit_distance': self._edit_distance(word, suggestion)
             })
         
-        # 4. Phonetic suggestions
-        phonetic_suggestions = self._get_phonetic_suggestions(word)
-        suggestions.extend(phonetic_suggestions)
-        
-        # 5. Fuzzy matching suggestions
-        fuzzy_suggestions = self._get_fuzzy_suggestions(word)
-        suggestions.extend(fuzzy_suggestions)
+        # 5. Phonetic and fuzzy suggestions (if no high-quality suggestions found)
+        if len(suggestions) < 3:
+            phonetic_suggestions = self._get_phonetic_suggestions(word)
+            suggestions.extend(phonetic_suggestions)
+            
+            fuzzy_suggestions = self._get_fuzzy_suggestions(word)
+            suggestions.extend(fuzzy_suggestions)
         
         # 6. Rank and filter suggestions
         final_suggestions = self._rank_and_filter_suggestions(suggestions, word)
@@ -483,7 +652,6 @@ class AdvancedSuggestionEngine:
             return suggestions
         
         try:
-            # Generate phonetic variations
             phonetic_variants = self._generate_phonetic_variants(word)
             
             for variant in phonetic_variants:
@@ -506,24 +674,25 @@ class AdvancedSuggestionEngine:
         if not RAPIDFUZZ_AVAILABLE:
             return suggestions
         
-        # Common English words for fuzzy matching
+        # Include Hugosave terms in fuzzy matching
         common_words = [
             'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had',
-            'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how',
-            'its', 'may', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy',
-            'did', 'man', 'car', 'use', 'her', 'oil', 'sit', 'set', 'run', 'eat'
+            'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how'
         ]
+        
+        # Add Hugosave brand terms
+        hugosave_terms = list(self.brand_manager.brand_terms.values())
+        common_words.extend(hugosave_terms)
         
         # Add custom words
         if hasattr(self.dict_manager, 'custom_words'):
             common_words.extend(list(self.dict_manager.custom_words)[:100])
         
         try:
-            # Use rapidfuzz for fast fuzzy matching
             matches = process.extract(word, common_words, limit=5, scorer=fuzz.WRatio)
             
             for match, score in matches:
-                if score > 70:  # Only high-confidence matches
+                if score > 70:
                     suggestions.append({
                         'word': match,
                         'confidence': score / 100.0,
@@ -567,6 +736,10 @@ class AdvancedSuggestionEngine:
         if self.dict_manager.is_custom_word(word):
             return True
         
+        # Check if it's a Hugosave term
+        if self.brand_manager.is_hugosave_term(word):
+            return True
+        
         return False
     
     def _edit_distance(self, word1: str, word2: str) -> int:
@@ -589,7 +762,7 @@ class AdvancedSuggestionEngine:
         return dp[m][n]
     
     def _rank_and_filter_suggestions(self, suggestions: List[Dict], original_word: str) -> List[Dict]:
-        """Rank and filter suggestions by quality"""
+        """Rank and filter suggestions with Hugosave priority"""
         # Remove duplicates
         seen = set()
         unique_suggestions = []
@@ -605,32 +778,38 @@ class AdvancedSuggestionEngine:
             s['edit_distance'] <= Config.MAX_EDIT_DISTANCE
         ]
         
-        # Calculate composite scores
+        # Calculate composite scores with Hugosave priority
         for suggestion in filtered:
-            # Combine multiple factors
             edit_penalty = suggestion['edit_distance'] / max(len(original_word), len(suggestion['word']))
             length_penalty = abs(len(original_word) - len(suggestion['word'])) / max(len(original_word), len(suggestion['word']))
             
-            # Source-based weighting
+            # Enhanced source-based weighting (Hugosave gets highest priority)
             source_weights = {
-                'custom': 1.0,
-                'dictionary_us': 0.95,
-                'dictionary_uk': 0.9,
-                'ai': 0.8,
+                'hugosave_hugosave_brand': 1.0,      # Highest priority
+                'hugosave_ux_writing': 0.98,
+                'hugosave_british_english': 0.95,
+                'hugosave_ai': 0.92,
+                'custom': 0.9,
+                'dictionary_us': 0.85,
+                'dictionary_uk': 0.8,
                 'phonetic': 0.7,
                 'fuzzy': 0.6
             }
             
             source_weight = source_weights.get(suggestion['source'], 0.5)
             
+            # Hugosave brand bonus
+            hugosave_bonus = 0.1 if suggestion.get('hugosave_brand', False) else 0.0
+            
             # Final composite score
             suggestion['final_score'] = (
                 suggestion['confidence'] * source_weight * 
-                (1 - edit_penalty * 0.3) * 
-                (1 - length_penalty * 0.2)
+                (1 - edit_penalty * 0.2) * 
+                (1 - length_penalty * 0.1) +
+                hugosave_bonus
             )
         
-        # Sort by final score
+        # Sort by final score (Hugosave terms will naturally rank higher)
         filtered.sort(key=lambda x: x['final_score'], reverse=True)
         
         return filtered
@@ -665,9 +844,10 @@ class RateLimiter:
 class SpellCheckRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=Config.MAX_TEXT_LENGTH)
     context: Optional[str] = Field(None, max_length=500)
-    language: Optional[str] = Field("en", pattern="^(en|en_US|en_GB)$")  # Fixed: regex -> pattern
+    language: Optional[str] = Field("en", pattern="^(en|en_US|en_GB)$")
     max_suggestions: Optional[int] = Field(5, ge=1, le=Config.MAX_SUGGESTIONS)
     include_confidence: Optional[bool] = True
+    hugosave_priority: Optional[bool] = True
     
     @validator('text')
     def validate_text(cls, v):
@@ -683,12 +863,15 @@ class SpellCheckResponse(BaseModel):
     language_detected: Optional[str]
     cache_hit: bool
     confidence_threshold: float
+    hugosave_optimized: bool
+    hugosave_correction: bool
 
 class BatchSpellCheckRequest(BaseModel):
     texts: List[str] = Field(..., min_items=1, max_items=100)
     context: Optional[str] = None
     language: Optional[str] = "en"
     max_suggestions: Optional[int] = 5
+    hugosave_priority: Optional[bool] = True
 
 class AddWordRequest(BaseModel):
     word: str = Field(..., min_length=1, max_length=100)
@@ -716,21 +899,23 @@ start_time = datetime.now()
 performance_monitor = PerformanceMonitor()
 cache_manager = CacheManager()
 dict_manager = CustomDictionaryManager()
-ai_manager = AIModelsManager()
-suggestion_engine = AdvancedSuggestionEngine(ai_manager, dict_manager)
+brand_manager = HugosaveBrandManager()
+ai_manager = HugosaveQuantizedAIManager()
+suggestion_engine = AdvancedSuggestionEngine(ai_manager, dict_manager, brand_manager)
 rate_limiter = RateLimiter()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
-    logger.info("Starting Enhanced Spell Checker API")
+    logger.info("🚀 Starting Hugosave Enhanced Spell Checker API")
+    logger.info(f"📊 Model Info: {ai_manager.model_info}")
     yield
-    logger.info("Shutting down Enhanced Spell Checker API")
+    logger.info("🛑 Shutting down Hugosave Enhanced Spell Checker API")
 
 app = FastAPI(
-    title="Advanced Spell Checker API",
-    description="Production-ready intelligent spell checking service",
-    version="2.0.0",
+    title="Hugosave Advanced Spell Checker API",
+    description="Production-ready spell checking with Hugosave brand guidelines and quantization",
+    version="3.0.0",
     lifespan=lifespan
 )
 
@@ -756,9 +941,10 @@ async def spell_check(
     request: Request,
     client_ip: str = Depends(check_rate_limit)
 ):
-    """Enhanced spell checking endpoint"""
-    start_time = time.time()
+    """Enhanced spell checking with Hugosave brand guidelines"""
+    start_time_request = time.time()
     cache_hit = False
+    hugosave_correction = False
     
     try:
         # Check cache first
@@ -772,15 +958,25 @@ async def spell_check(
         word = spell_request.text.lower().strip()
         is_correct = dict_manager.is_custom_word(word)
         
+        # Check Hugosave brand terms
+        if not is_correct:
+            hugosave_correction_result = brand_manager.get_hugosave_correction(word)
+            if hugosave_correction_result and hugosave_correction_result[0].lower() == word:
+                is_correct = True
+        
+        # Check dictionaries
         if not is_correct and suggestion_engine.us_dict:
             is_correct = suggestion_engine.us_dict.check(word) or suggestion_engine.uk_dict.check(word)
         
         suggestions = []
         if not is_correct:
-            # Get comprehensive suggestions
+            # Get comprehensive suggestions with Hugosave priority
             suggestion_results = suggestion_engine.get_comprehensive_suggestions(
                 word, spell_request.context or "", spell_request.language
             )
+            
+            # Check if any suggestion is a Hugosave correction
+            hugosave_correction = any(s.get('hugosave_brand', False) for s in suggestion_results)
             
             # Format suggestions
             suggestions = [
@@ -788,13 +984,14 @@ async def spell_check(
                     "word": s["word"],
                     "confidence": s["final_score"],
                     "source": s["source"],
-                    "edit_distance": s["edit_distance"]
+                    "edit_distance": s["edit_distance"],
+                    "hugosave_brand": s.get("hugosave_brand", False)
                 }
                 for s in suggestion_results[:spell_request.max_suggestions]
             ]
         
         # Prepare response
-        processing_time = (time.time() - start_time) * 1000
+        processing_time = (time.time() - start_time_request) * 1000
         response_data = {
             "is_correct": is_correct,
             "original_text": spell_request.text,
@@ -802,7 +999,9 @@ async def spell_check(
             "processing_time_ms": processing_time,
             "language_detected": spell_request.language,
             "cache_hit": cache_hit,
-            "confidence_threshold": Config.MIN_CONFIDENCE
+            "confidence_threshold": Config.MIN_CONFIDENCE,
+            "hugosave_optimized": ai_manager.model_info.get('hugosave_optimized', False),
+            "hugosave_correction": hugosave_correction
         }
         
         # Cache result
@@ -811,12 +1010,12 @@ async def spell_check(
         )
         
         # Record performance
-        performance_monitor.record_request(processing_time / 1000)
+        performance_monitor.record_request(processing_time / 1000, hugosave_correction=hugosave_correction)
         
         return SpellCheckResponse(**response_data)
         
     except Exception as e:
-        performance_monitor.record_request((time.time() - start_time) * 1000, error=True)
+        performance_monitor.record_request((time.time() - start_time_request) * 1000, error=True)
         logger.error(f"Spell check error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
@@ -826,8 +1025,8 @@ async def batch_spell_check(
     request: Request,
     client_ip: str = Depends(check_rate_limit)
 ):
-    """Batch spell checking endpoint"""
-    start_time = time.time()
+    """Batch spell checking with Hugosave optimization"""
+    start_time_batch = time.time()
     
     try:
         results = []
@@ -840,7 +1039,8 @@ async def batch_spell_check(
                     text=text,
                     context=batch_request.context,
                     language=batch_request.language,
-                    max_suggestions=batch_request.max_suggestions
+                    max_suggestions=batch_request.max_suggestions,
+                    hugosave_priority=batch_request.hugosave_priority
                 )
                 for text in batch_request.texts
             ]
@@ -859,11 +1059,16 @@ async def batch_spell_check(
             # Collect results
             for i, future in enumerate(futures):
                 try:
-                    suggestions = future.result(timeout=10)  # 10 second timeout
+                    suggestions = future.result(timeout=10)
+                    
+                    # Check for Hugosave corrections
+                    hugosave_correction = any(s.get('hugosave_brand', False) for s in suggestions)
+                    
                     results.append({
                         "text": batch_request.texts[i],
                         "is_correct": len(suggestions) == 0,
-                        "suggestions": suggestions[:batch_request.max_suggestions]
+                        "suggestions": suggestions[:batch_request.max_suggestions],
+                        "hugosave_correction": hugosave_correction
                     })
                 except Exception as e:
                     logger.error(f"Batch processing error for '{batch_request.texts[i]}': {e}")
@@ -872,12 +1077,13 @@ async def batch_spell_check(
                         "error": str(e)
                     })
         
-        processing_time = (time.time() - start_time) * 1000
+        processing_time = (time.time() - start_time_batch) * 1000
         
         return {
             "results": results,
             "total_processed": len(batch_request.texts),
-            "processing_time_ms": processing_time
+            "processing_time_ms": processing_time,
+            "hugosave_optimized": True
         }
         
     except Exception as e:
@@ -922,9 +1128,19 @@ async def add_custom_correction(
         logger.error(f"Error adding custom correction: {e}")
         raise HTTPException(status_code=500, detail="Failed to add custom correction")
 
+@app.get("/hugosave-terms")
+async def get_hugosave_terms():
+    """Get all Hugosave brand terms"""
+    return {
+        "brand_terms": brand_manager.brand_terms,
+        "ux_writing_rules": brand_manager.ux_writing_rules,
+        "style_rules": brand_manager.style_rules,
+        "total_terms": len(brand_manager.brand_terms) + len(brand_manager.ux_writing_rules) + len(brand_manager.style_rules)
+    }
+
 @app.get("/stats")
 async def get_stats():
-    """Get system statistics"""
+    """Get comprehensive system statistics"""
     return {
         "performance": performance_monitor.get_stats(),
         "cache_info": {
@@ -936,12 +1152,20 @@ async def get_stats():
             "custom_corrections": len(dict_manager.domain_corrections),
             "enchant_available": suggestion_engine.us_dict is not None
         },
+        "hugosave_info": {
+            "brand_terms": len(brand_manager.brand_terms),
+            "ux_rules": len(brand_manager.ux_writing_rules),
+            "style_rules": len(brand_manager.style_rules),
+            "model_optimized": ai_manager.model_info.get('hugosave_optimized', False)
+        },
+        "model_info": ai_manager.model_info,
         "features": {
             "enchant_available": ENCHANT_AVAILABLE,
             "redis_available": REDIS_AVAILABLE,
             "semantic_model_available": SEMANTIC_MODEL_AVAILABLE,
             "phonetics_available": PHONETICS_AVAILABLE,
-            "rapidfuzz_available": RAPIDFUZZ_AVAILABLE
+            "rapidfuzz_available": RAPIDFUZZ_AVAILABLE,
+            "hugosave_quantized": True
         }
     }
 
@@ -951,23 +1175,65 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "uptime_seconds": (datetime.now() - start_time).total_seconds()
+        "uptime_seconds": (datetime.now() - start_time).total_seconds(),
+        "hugosave_optimized": ai_manager.model_info.get('hugosave_optimized', False),
+        "model_type": ai_manager.model_info.get('model_type', 'unknown')
     }
+
+@app.get("/benchmark")
+async def benchmark_performance():
+    """Benchmark Hugosave spell checker performance"""
+    try:
+        hugosave_test_words = ["hugosave", "hugohero", "login", "color", "realize", "centre"]
+        
+        start_time_bench = time.time()
+        results = []
+        
+        for word in hugosave_test_words:
+            word_start = time.time()
+            suggestions = suggestion_engine.get_comprehensive_suggestions(word)
+            word_time = (time.time() - word_start) * 1000
+            
+            results.append({
+                "word": word,
+                "processing_time_ms": round(word_time, 2),
+                "suggestions_count": len(suggestions),
+                "hugosave_correction": any(s.get('hugosave_brand', False) for s in suggestions)
+            })
+        
+        total_time = (time.time() - start_time_bench) * 1000
+        avg_time = total_time / len(hugosave_test_words)
+        
+        return {
+            "benchmark_results": results,
+            "total_time_ms": round(total_time, 2),
+            "average_time_ms": round(avg_time, 2),
+            "model_info": ai_manager.model_info,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Benchmark failed: {str(e)}")
 
 @app.get("/")
 async def root():
     """Root endpoint"""
     return {
-        "service": "Advanced Spell Checker API",
-        "version": "2.0.0",
+        "service": "Hugosave Advanced Spell Checker API",
+        "version": "3.0.0",
         "status": "running",
+        "hugosave_optimized": ai_manager.model_info.get('hugosave_optimized', False),
         "features": [
+            "Hugosave brand guidelines integration",
+            "Quantized AI models for fast inference",
             "Multi-source suggestions",
             "Custom dictionaries",
             "Batch processing",
             "Intelligent caching",
             "Rate limiting",
-            "Performance monitoring"
+            "Performance monitoring",
+            "British English style guide",
+            "UX writing rules"
         ]
     }
 
