@@ -16,7 +16,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('hugosave_pipeline.log'),
+        logging.FileHandler('advanced_spell_checker.log'),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -25,25 +25,43 @@ logger = logging.getLogger(__name__)
 
 # Expose FastAPI app for `uvicorn main:app --reload`
 try:
-    # Re-export the app defined in deployment_pipeline.py
-    from deployment_pipeline import app as app  # type: ignore
+    # Try to use the new advanced spell checking API
+    from advanced_spell_api import app as app  # type: ignore
+    logger.info("✅ Advanced Spell Checking API loaded successfully")
 except Exception as import_error:  # pragma: no cover - fallback path
     try:
-        # Lightweight fallback so the process still starts and provides guidance
-        from fastapi import FastAPI
+        # Fallback to old deployment pipeline
+        from deployment_pipeline import app as app  # type: ignore
+        logger.warning("⚠️  Using legacy T5 deployment pipeline. Consider upgrading to advanced_spell_api.py")
+    except Exception as fallback_error:
+        try:
+            # Lightweight fallback so the process still starts and provides guidance
+            from fastapi import FastAPI
 
-        app = FastAPI(title="T5 Spell Correction API (fallback)")
+            app = FastAPI(title="Spell Correction API (fallback)")
 
-        @app.get("/")
-        async def _fallback_root():
-            return {
-                "message": "Fallback API running. Install dependencies to enable full API.",
-                "detail": str(import_error),
-                "hint": "pip install -r requirements.txt && uvicorn deployment_pipeline:app --reload",
-            }
-    except Exception:
-        # If even FastAPI is unavailable, leave app undefined; uvicorn will surface a clear error
-        app = None  # type: ignore
+            @app.get("/")
+            async def _fallback_root():
+                return {
+                    "message": "Fallback API running. Advanced spell checker not available.",
+                    "advanced_error": str(import_error),
+                    "legacy_error": str(fallback_error),
+                    "solution": "Run: python setup_and_run.py",
+                    "or": "python advanced_spell_api.py",
+                    "docs": "See README_ADVANCED.md for full setup instructions"
+                }
+
+            @app.get("/health")
+            async def _fallback_health():
+                return {
+                    "status": "degraded",
+                    "message": "Fallback mode - limited functionality",
+                    "recommendation": "Install advanced spell checking system"
+                }
+
+        except Exception:
+            # If even FastAPI is unavailable, leave app undefined; uvicorn will surface a clear error
+            app = None  # type: ignore
 
 def check_dependencies():
     """Check if required packages are installed"""
