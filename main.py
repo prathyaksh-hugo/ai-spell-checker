@@ -1,8 +1,4 @@
-#!/usr/bin/env python3
-"""
-Main Entry Point for Hugosave T5 Spell Correction Pipeline
-Run this file to start the complete pipeline
-"""
+
 
 import os
 import sys
@@ -12,7 +8,8 @@ from pathlib import Path
 # Add current directory to path for imports
 sys.path.append(str(Path(__file__).parent))
 
-from hugosave_pipeline import HugosavePipeline
+# NOTE: Avoid importing training pipeline at module import time to keep API startup light
+HugosavePipeline = None  # type: ignore
 
 # Configure logging
 logging.basicConfig(
@@ -26,29 +23,62 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Expose FastAPI app for `uvicorn main:app --reload`
+try:
+    # Re-export the app defined in deployment_pipeline.py
+    from deployment_pipeline import app as app  # type: ignore
+except Exception as import_error:  # pragma: no cover - fallback path
+    try:
+        # Lightweight fallback so the process still starts and provides guidance
+        from fastapi import FastAPI
+
+        app = FastAPI(title="T5 Spell Correction API (fallback)")
+
+        @app.get("/")
+        async def _fallback_root():
+            return {
+                "message": "Fallback API running. Install dependencies to enable full API.",
+                "detail": str(import_error),
+                "hint": "pip install -r requirements.txt && uvicorn deployment_pipeline:app --reload",
+            }
+    except Exception:
+        # If even FastAPI is unavailable, leave app undefined; uvicorn will surface a clear error
+        app = None  # type: ignore
+
 def check_dependencies():
     """Check if required packages are installed"""
-    required_packages = [
-        'torch', 'transformers', 'datasets', 'pandas', 'numpy',
-        'nltk', 'scikit-learn', 'tqdm'
-    ]
-    
+    # Map pip names to their importable module names
+    required_packages = {
+        'torch': 'torch',
+        'transformers': 'transformers',
+        'datasets': 'datasets',
+        'pandas': 'pandas',
+        'numpy': 'numpy',
+        'nltk': 'nltk',
+        'scikit-learn': 'sklearn',
+        'tqdm': 'tqdm',
+    }
+
     missing = []
-    for package in required_packages:
+    for pip_name, import_name in required_packages.items():
         try:
-            __import__(package)
+            __import__(import_name)
         except ImportError:
-            missing.append(package)
-    
+            missing.append(pip_name)
+
     if missing:
         logger.error(f"Missing required packages: {missing}")
         logger.info("Please install them with: pip install -r requirements.txt")
         return False
-    
+
     return True
 
 def main():
     """Main function to run the Hugosave pipeline"""
+    # Lazy import to avoid heavy dependencies during API-only runs
+    global HugosavePipeline  # type: ignore
+    if HugosavePipeline is None:
+        from hugosave_pipeline import HugosavePipeline  # type: ignore
     
     print("=" * 60)
     print("🚀 HUGOSAVE T5 SPELL CORRECTION PIPELINE")

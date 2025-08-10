@@ -20,7 +20,6 @@ from transformers import (
     EarlyStoppingCallback
 )
 from sklearn.model_selection import train_test_split
-import wandb
 from tqdm import tqdm
 import logging
 
@@ -136,18 +135,22 @@ class T5SpellCorrectionTrainer:
         self.data_processor = None
         
         # Initialize WandB if available
+        self._wandb = None
         self.use_wandb = self._setup_wandb()
     
     def _setup_wandb(self) -> bool:
-        """Setup Weights & Biases logging"""
+        """Setup Weights & Biases logging (optional)"""
         try:
+            import wandb  # Local import to keep dependency optional
             wandb.init(
                 project=self.config.wandb_project,
                 config=self.config.__dict__
             )
+            self._wandb = wandb
             return True
         except Exception as e:
-            logger.warning(f"WandB setup failed: {e}")
+            logger.warning(f"WandB disabled: {e}")
+            self._wandb = None
             return False
     
     def load_model_and_tokenizer(self):
@@ -240,9 +243,9 @@ class T5SpellCorrectionTrainer:
         
         logger.info(f"Test results: {test_results}")
         
-        if self.use_wandb:
-            wandb.log({"test_loss": test_results["eval_loss"]})
-            wandb.finish()
+        if self.use_wandb and self._wandb is not None:
+            self._wandb.log({"test_loss": test_results.get("eval_loss")})
+            self._wandb.finish()
         
         return test_results
     

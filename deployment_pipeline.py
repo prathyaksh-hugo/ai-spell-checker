@@ -318,7 +318,8 @@ class PerformanceBenchmark:
 # FastAPI application
 if FASTAPI_AVAILABLE:
     app = FastAPI(title="T5 Spell Correction API", version="1.0.0")
-    model_manager = ModelManager()
+    # Align API with pipeline output directory
+    model_manager = ModelManager(models_dir="./hugosave_quantized_models")
     
     @app.on_event("startup")
     async def startup_event():

@@ -26,9 +26,21 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.corpus import stopwords
 try:
     nltk.data.find('tokenizers/punkt')
-    nltk.data.find('corpora/stopwords')
 except LookupError:
     nltk.download('punkt')
+
+# Newer NLTK versions split out punkt tables; handle both cases
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    try:
+        nltk.download('punkt_tab')
+    except Exception:
+        pass
+
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
     nltk.download('stopwords')
 
 # OCR support
@@ -59,7 +71,7 @@ class BrandGuideProcessor:
         terms = set()
         
         # Extract defined terms (often in quotes or after colons)
-        defined_terms = re.findall(r'["'"]([^"'"]+)["'"]', text)
+        defined_terms = re.findall(r'["\']([^"\']+)["\']', text)
         terms.update(defined_terms)
         
         # Extract capitalized terms
