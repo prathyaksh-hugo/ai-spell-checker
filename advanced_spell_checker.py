@@ -150,6 +150,27 @@ class LearningDatabase:
         
         conn.commit()
         conn.close()
+        
+        # Initialize with common corrections
+        self._init_common_corrections()
+    
+    def _init_common_corrections(self):
+        """Initialize database with common spelling corrections"""
+        common_corrections = [
+            ("appliction", "application"),
+            ("recieve", "receive"),
+            ("seperate", "separate"),
+            ("occured", "occurred"),
+            ("begining", "beginning"),
+            ("definately", "definitely"),
+            ("accomodate", "accommodate"),
+            ("calender", "calendar"),
+            ("collegue", "colleague"),
+            ("comming", "coming")
+        ]
+        
+        for original, corrected in common_corrections:
+            self.add_user_correction(original, corrected, "common_spelling")
     
     def add_user_correction(self, original: str, corrected: str, context: str = None):
         """Add a user correction to the learning database"""
@@ -264,13 +285,36 @@ class RAGSpellChecker:
         """Initialize ChromaDB for RAG"""
         try:
             self.chroma_client = chromadb.PersistentClient(path=self.vector_db_path)
-            self.collection = self.chroma_client.get_or_create_collection(
+            
+            # Clear existing collection to remove corrupted data
+            try:
+                self.chroma_client.delete_collection("spell_corrections")
+                logger.info("Cleared existing RAG collection")
+            except:
+                pass  # Collection might not exist
+                
+            self.collection = self.chroma_client.create_collection(
                 name="spell_corrections",
                 metadata={"description": "Spell correction knowledge base"}
             )
             logger.info("Vector database initialized successfully")
+            
+            # Initialize with basic corrections
+            self._init_basic_rag_corrections()
         except Exception as e:
             logger.error(f"Failed to initialize vector database: {e}")
+    
+    def _init_basic_rag_corrections(self):
+        """Initialize RAG database with basic corrections"""
+        basic_corrections = [
+            {"incorrect": "appliction", "correct": "application", "context": "software development"},
+            {"incorrect": "recieve", "correct": "receive", "context": "communication"},
+            {"incorrect": "seperate", "correct": "separate", "context": "general writing"},
+            {"incorrect": "occured", "correct": "occurred", "context": "general writing"},
+            {"incorrect": "begining", "correct": "beginning", "context": "general writing"}
+        ]
+        
+        self.add_knowledge(basic_corrections)
     
     def _init_sentence_transformer(self):
         """Initialize sentence transformer for embeddings"""
@@ -466,15 +510,15 @@ class MultiEngineSpellChecker:
             max_freq = max(self.word_frequencies.values())
             frequency_boost = self.word_frequencies[suggestion.lower()] / max_freq * 0.2
         
-        # Source confidence adjustment
+        # Source confidence adjustment - prioritize traditional spell checkers
         source_weights = {
             'user_learned': 1.0,
-            'dictionary_us': 0.9,
-            'transformer': 0.8,
-            'symspell': 0.85,
-            'pyspell': 0.8,
+            'dictionary_us': 0.95,
+            'symspell': 0.9,
             'language_tool': 0.9,
-            'rag': 0.75
+            'pyspell': 0.85,
+            'transformer': 0.8,
+            'rag': 0.6  # Significantly reduce RAG weight
         }
         
         source_weight = source_weights.get(source, 0.7)
@@ -587,19 +631,23 @@ class MultiEngineSpellChecker:
             except Exception as e:
                 logger.warning(f"Language Tool error for '{word}': {e}")
         
-        # RAG suggestions
-        rag_suggestions = self.rag_checker.get_contextual_suggestions(word, context, top_k=3)
-        for rag_sugg in rag_suggestions:
-            if rag_sugg['suggested_word']:
-                suggestion = SpellingSuggestion(
-                    word=rag_sugg['suggested_word'],
-                    confidence=rag_sugg['confidence'],
-                    source="rag",
-                    edit_distance=self._calculate_edit_distance(word, rag_sugg['suggested_word']),
-                    final_score=0.0,
-                    context_score=rag_sugg['confidence']
-                )
-                all_suggestions.append(suggestion)
+        # RAG suggestions (only if traditional checkers didn't find good suggestions)
+        if not all_suggestions or max(s.confidence for s in all_suggestions) < 0.5:
+            rag_suggestions = self.rag_checker.get_contextual_suggestions(word, context, top_k=3)
+            for rag_sugg in rag_suggestions:
+                if rag_sugg['suggested_word']:
+                    # Validate RAG suggestions - they should have reasonable edit distance
+                    edit_dist = self._calculate_edit_distance(word, rag_sugg['suggested_word'])
+                    if edit_dist <= 3:  # Only accept suggestions with edit distance <= 3
+                        suggestion = SpellingSuggestion(
+                            word=rag_sugg['suggested_word'],
+                            confidence=rag_sugg['confidence'] * 0.8,  # Reduce RAG confidence
+                            source="rag",
+                            edit_distance=edit_dist,
+                            final_score=0.0,
+                            context_score=rag_sugg['confidence']
+                        )
+                        all_suggestions.append(suggestion)
         
         # Remove duplicates and calculate final scores
         unique_suggestions = {}

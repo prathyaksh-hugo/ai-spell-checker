@@ -77,24 +77,17 @@ class SentenceCorrectionResponse(BaseModel):
     """Response model for sentence correction"""
     original_text: str = Field(..., description="Original text")
     corrected_text: str = Field(..., description="Corrected text")
-    model_used: str = Field(..., description="Model used for correction")
-    inference_time_ms: float = Field(..., description="Inference time in milliseconds")
     confidence: Optional[float] = Field(None, description="Overall confidence score")
-    word_corrections: Optional[List[Dict[str, Any]]] = Field(None, description="Individual word corrections")
 
 class BatchSpellCheckResponse(BaseModel):
     """Response model for batch spell checking"""
     results: List[WordSpellCheckResponse] = Field(..., description="Results for each input text")
     total_texts: int = Field(..., description="Total number of texts processed")
-    avg_processing_time_ms: float = Field(..., description="Average processing time")
-    overall_accuracy: Optional[float] = Field(None, description="Overall accuracy estimate")
 
 class BatchCorrectionResponse(BaseModel):
     """Response model for batch sentence correction"""
     results: List[SentenceCorrectionResponse] = Field(..., description="Correction results")
     total_texts: int = Field(..., description="Total number of texts processed")
-    avg_inference_time_ms: float = Field(..., description="Average inference time")
-    model_used: str = Field(..., description="Model used for corrections")
 
 class ModelInfo(BaseModel):
     """Model information response"""
@@ -251,9 +244,7 @@ async def spell_check_words(request: WordSpellCheckRequest):
     if not checker:
         raise HTTPException(status_code=503, detail="Spell checker not available")
     
-    start_time = time.time()
     results = []
-    total_processing_time = 0
     
     for text in request.texts:
         try:
@@ -282,7 +273,6 @@ async def spell_check_words(request: WordSpellCheckRequest):
                     processing_time_ms=result.processing_time_ms
                 )
                 word_results.append(word_result)
-                total_processing_time += result.processing_time_ms or 0
             
             # If multiple words, return the result for the whole text
             if len(words) == 1:
@@ -313,13 +303,9 @@ async def spell_check_words(request: WordSpellCheckRequest):
             )
             results.append(error_result)
     
-    avg_processing_time = total_processing_time / len(results) if results else 0
-    
     return BatchSpellCheckResponse(
         results=results,
-        total_texts=len(request.texts),
-        avg_processing_time_ms=avg_processing_time,
-        overall_accuracy=None  # Could be calculated if we had ground truth
+        total_texts=len(request.texts)
     )
 
 @app.post("/correct_batch", response_model=BatchCorrectionResponse)
@@ -329,41 +315,14 @@ async def correct_batch(request: SentenceSpellCheckRequest):
     if not checker:
         raise HTTPException(status_code=503, detail="Spell checker not available")
     
-    start_time = time.time()
     results = []
-    total_inference_time = 0
     
     for text in request.texts:
         try:
-            sentence_start_time = time.time()
-            
             # Check and correct the sentence
             sentence_result = checker.check_sentence(text)
             
-            inference_time = (time.time() - sentence_start_time) * 1000
-            total_inference_time += inference_time
-            
-            # Prepare word corrections if requested
-            word_corrections = None
-            if request.return_confidence:
-                word_corrections = []
-                for word_result in sentence_result.get('word_results', []):
-                    if not word_result.is_correct:
-                        word_corrections.append({
-                            "original": word_result.text,
-                            "corrected": word_result.corrected_text,
-                            "confidence": word_result.confidence,
-                            "suggestions": [
-                                {
-                                    "word": sugg.word,
-                                    "confidence": sugg.confidence,
-                                    "source": sugg.source,
-                                    "edit_distance": sugg.edit_distance,
-                                    "final_score": sugg.final_score
-                                }
-                                for sugg in word_result.suggestions[:3]
-                            ]
-                        })
+
             
             # Determine the best corrected text
             corrected_text = text  # Default to original
@@ -382,10 +341,7 @@ async def correct_batch(request: SentenceSpellCheckRequest):
             result = SentenceCorrectionResponse(
                 original_text=text,
                 corrected_text=corrected_text,
-                model_used=request.model_type,
-                inference_time_ms=inference_time,
-                confidence=confidence if request.return_confidence else None,
-                word_corrections=word_corrections
+                confidence=confidence if request.return_confidence else None
             )
             
             results.append(result)
@@ -396,19 +352,13 @@ async def correct_batch(request: SentenceSpellCheckRequest):
             error_result = SentenceCorrectionResponse(
                 original_text=text,
                 corrected_text=text,
-                model_used=request.model_type,
-                inference_time_ms=0.0,
                 confidence=None
             )
             results.append(error_result)
     
-    avg_inference_time = total_inference_time / len(results) if results else 0
-    
     return BatchCorrectionResponse(
         results=results,
-        total_texts=len(request.texts),
-        avg_inference_time_ms=avg_inference_time,
-        model_used=request.model_type
+        total_texts=len(request.texts)
     )
 
 @app.post("/learn")
