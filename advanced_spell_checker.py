@@ -28,18 +28,38 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-# NLP and spell checking libraries
+# NLP and spell checking libraries (import independently; do not fail all on one missing)
+HAVE_PYSPELLCHECKER = False
+HAVE_SYMSPELL = False
+HAVE_LANGUAGE_TOOL = False
+
 try:
-    from spellchecker import SpellChecker
-    import enchant
-    from symspellpy import SymSpell, Verbosity
-    import language_tool_python
-    import nltk
-    from textblob import TextBlob
-    SPELL_LIBRARIES_AVAILABLE = True
+    from spellchecker import SpellChecker  # pyspellchecker
+    HAVE_PYSPELLCHECKER = True
 except ImportError as e:
-    logging.warning(f"Some spell checking libraries not available: {e}")
-    SPELL_LIBRARIES_AVAILABLE = False
+    logging.warning(f"PySpellChecker not available: {e}")
+
+try:
+    from symspellpy import SymSpell, Verbosity
+    HAVE_SYMSPELL = True
+except ImportError as e:
+    logging.warning(f"SymSpell not available: {e}")
+
+try:
+    import language_tool_python
+    HAVE_LANGUAGE_TOOL = True
+except ImportError as e:
+    logging.warning(f"language_tool_python not available: {e}")
+
+# Optional extras (do not gate functionality)
+try:
+    import nltk  # noqa: F401
+except ImportError:
+    pass
+try:
+    from textblob import TextBlob  # noqa: F401
+except ImportError:
+    pass
 
 # ML libraries
 try:
@@ -350,9 +370,12 @@ class RAGSpellChecker:
 class MultiEngineSpellChecker:
     """Multi-engine spell checker combining multiple approaches"""
     
-    def __init__(self):
+    def __init__(self, model_name_or_path: Optional[str] = None, brand_terms: Optional[List[str]] = None):
         self.learning_db = LearningDatabase()
         self.rag_checker = RAGSpellChecker()
+        
+        # Optional custom transformer model path/name
+        self.model_name_or_path = model_name_or_path or os.environ.get("SPELL_MODEL_PATH")
         
         # Initialize spell checking engines
         self.pyspell_checker = None
@@ -360,57 +383,116 @@ class MultiEngineSpellChecker:
         self.language_tool = None
         self.transformer_corrector = None
         
-        if SPELL_LIBRARIES_AVAILABLE:
-            self._init_traditional_checkers()
+        # Initialize any traditional checkers that are available
+        self._init_traditional_checkers()
         if TRANSFORMERS_AVAILABLE:
             self._init_transformer_corrector()
+        
+        # Brand terms map for enforcing capitalization (key: lowercase, value: canonical)
+        self.brand_terms_case_map = self._build_brand_terms_case_map(brand_terms)
         
         # Word frequency data for scoring
         self.word_frequencies = self._load_word_frequencies()
     
     def _init_traditional_checkers(self):
-        """Initialize traditional spell checking libraries"""
-        try:
-            # PySpellChecker
-            self.pyspell_checker = SpellChecker()
-            
-            # SymSpell
-            self.symspell = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
-            
-            # Load dictionary for SymSpell
-            dictionary_path = "./symspell_frequency_dictionary_en_82_765.txt"
-            if not os.path.exists(dictionary_path):
-                # Create a basic dictionary if not available
-                self._create_basic_dictionary(dictionary_path)
-            self.symspell.load_dictionary(dictionary_path, term_index=0, count_index=1)
-            
-            # Language Tool
-            self.language_tool = language_tool_python.LanguageTool('en-US')
-            
-            logger.info("Traditional spell checkers initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize traditional checkers: {e}")
+        """Initialize any available traditional spell checking libraries independently"""
+        loaded_engines = []
+
+        # PySpellChecker
+        if HAVE_PYSPELLCHECKER:
+            try:
+                self.pyspell_checker = SpellChecker()
+                loaded_engines.append("pyspell")
+            except Exception as e:
+                self.pyspell_checker = None
+                logger.warning(f"Failed to initialize PySpellChecker: {e}")
+
+        # SymSpell
+        if HAVE_SYMSPELL:
+            try:
+                self.symspell = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
+                dictionary_path = "./symspell_frequency_dictionary_en_82_765.txt"
+                if not os.path.exists(dictionary_path):
+                    # Create a basic dictionary if not available
+                    self._create_basic_dictionary(dictionary_path)
+                self.symspell.load_dictionary(dictionary_path, term_index=0, count_index=1)
+                loaded_engines.append("symspell")
+            except Exception as e:
+                self.symspell = None
+                logger.warning(f"Failed to initialize SymSpell: {e}")
+
+        # Language Tool
+        if HAVE_LANGUAGE_TOOL:
+            try:
+                self.language_tool = language_tool_python.LanguageTool('en-US')
+                loaded_engines.append("language_tool")
+            except Exception as e:
+                self.language_tool = None
+                logger.warning(f"Failed to initialize LanguageTool: {e}")
+
+        if loaded_engines:
+            logger.info(f"Traditional spell checkers initialized: {', '.join(loaded_engines)}")
+        else:
+            logger.warning("No traditional spell checkers could be initialized. Suggestions may be limited.")
     
     def _init_transformer_corrector(self):
         """Initialize transformer-based spell corrector"""
-        try:
-            # Use a pre-trained T5 model for spell correction
-            self.transformer_corrector = pipeline(
-                "text2text-generation",
-                model="oliverguhr/spelling-correction-english-base",
-                tokenizer="oliverguhr/spelling-correction-english-base"
-            )
-            logger.info("Transformer corrector initialized successfully")
-        except Exception as e:
-            logger.warning(f"Failed to initialize transformer corrector: {e}")
-            # Fallback to a basic T5 model
+        # If user provided a custom fine-tuned model path/name, try it first
+        candidate_models: List[Tuple[str, Optional[str]]] = []
+        if self.model_name_or_path:
+            candidate_models.append((self.model_name_or_path, None))
+        
+        # Fallbacks
+        candidate_models.extend([
+            ("ai-forever/T5-large-spell", None),
+            ("oliverguhr/spelling-correction-english-base", "oliverguhr/spelling-correction-english-base"),
+            ("t5-small", None),
+        ])
+        
+        for model_name, tokenizer_name in candidate_models:
             try:
                 self.transformer_corrector = pipeline(
                     "text2text-generation",
-                    model="t5-small"
+                    model=model_name,
+                    tokenizer=(tokenizer_name or model_name)
                 )
-            except:
-                self.transformer_corrector = None
+                logger.info(f"Transformer corrector initialized: {model_name}")
+                return
+            except Exception as e:
+                logger.warning(f"Failed to initialize transformer model '{model_name}': {e}")
+        self.transformer_corrector = None
+
+    def _build_brand_terms_case_map(self, brand_terms: Optional[List[str]]) -> Dict[str, str]:
+        """Build a lowercase->canonical case map for brand terms and common hashtags."""
+        # Default key terms commonly used in Hugosave brand guide
+        default_terms = [
+            "Hugosave", "Hugohero", "Hugoheroes", "Wealthcare"
+        ]
+        terms = brand_terms or default_terms
+        case_map: Dict[str, str] = {}
+        for term in terms:
+            case_map[term.lower()] = term
+            # Also track hashtag variant
+            case_map[f"#{term.lower()}"] = f"#{term}"
+        return case_map
+
+    def enforce_brand_casing(self, text: str) -> str:
+        """Ensure brand terms are correctly capitalized in the provided text."""
+        if not text:
+            return text
+        result = text
+        # Replace longer keys first to avoid partial overlaps
+        for key in sorted(self.brand_terms_case_map.keys(), key=len, reverse=True):
+            canonical = self.brand_terms_case_map[key]
+            if key.startswith('#'):
+                # Hashtag replacement (case-insensitive)
+                pattern = re.compile(re.escape(key), flags=re.IGNORECASE)
+                result = pattern.sub(canonical, result)
+            else:
+                # Word boundary replacement (case-insensitive)
+                pattern = re.compile(rf"\b{re.escape(key)}\b", flags=re.IGNORECASE)
+                result = pattern.sub(canonical, result)
+        return result
     
     def _create_basic_dictionary(self, path: str):
         """Create a basic frequency dictionary"""
@@ -422,9 +504,43 @@ class MultiEngineSpellChecker:
             'he': 85000, 'as': 80000, 'you': 75000, 'do': 70000, 'at': 65000
         }
         
+        # Enrich with common corrections and technical terms
+        enriched_words = {
+            # Correct forms for common misspellings
+            'application': 400000,
+            'applications': 200000,
+            'receive': 500000,
+            'separate': 300000,
+            'definitely': 200000,
+            'occurred': 150000,
+            'accommodate': 120000,
+            'acknowledge': 80000,
+            'beginning': 250000,
+            'calendar': 120000,
+            'cemetery': 50000,
+            'changeable': 40000,
+            'consensus': 60000,
+            'dilemma': 70000,
+            'existence': 180000,
+            'experience': 400000,
+            'independent': 200000,
+            'occasion': 100000,
+            'privilege': 80000,
+            'tomorrow': 150000,
+            'until': 500000,
+            'weird': 80000,
+            'affliction': 90000,
+            # Useful base words often proposed
+            'javascript': 30000,
+            'python': 50000,
+            'technical': 60000,
+            'document': 120000,
+        }
+        basic_words.update(enriched_words)
+
         with open(path, 'w') as f:
             for word, freq in basic_words.items():
-                f.write(f"{word} {freq}\n")
+                f.write(f"{word.lower()} {freq}\n")
     
     def _load_word_frequencies(self) -> Dict[str, int]:
         """Load word frequency data for scoring"""
@@ -487,6 +603,25 @@ class MultiEngineSpellChecker:
         """Check spelling of a single word using multiple engines"""
         start_time = time.time()
         
+        # Enforce brand casing as a first-class correction
+        brand_canonical = self.brand_terms_case_map.get(word.lower())
+        if brand_canonical and word != brand_canonical:
+            suggestion = SpellingSuggestion(
+                word=brand_canonical,
+                confidence=1.0,
+                source="brand_rule",
+                edit_distance=self._calculate_edit_distance(word, brand_canonical),
+                final_score=1.0
+            )
+            return SpellCheckResult(
+                text=word,
+                is_correct=False,
+                suggestions=[suggestion],
+                corrected_text=brand_canonical,
+                confidence=1.0,
+                processing_time_ms=(time.time() - start_time) * 1000
+            )
+
         # Check if word is ignored or whitelisted
         if self.learning_db.is_ignored(word):
             return SpellCheckResult(
@@ -587,17 +722,26 @@ class MultiEngineSpellChecker:
             except Exception as e:
                 logger.warning(f"Language Tool error for '{word}': {e}")
         
-        # RAG suggestions
+        # RAG suggestions (filtered by edit distance)
         rag_suggestions = self.rag_checker.get_contextual_suggestions(word, context, top_k=3)
         for rag_sugg in rag_suggestions:
             if rag_sugg['suggested_word']:
+                # Clamp confidence to [0, 1]
+                rag_conf = rag_sugg['confidence']
+                if rag_conf is None:
+                    rag_conf = 0.5
+                rag_conf = max(0.0, min(1.0, float(rag_conf)))
+                ed = self._calculate_edit_distance(word, rag_sugg['suggested_word'])
+                # Skip far-off suggestions to avoid irrelevant corrections
+                if ed > 3:
+                    continue
                 suggestion = SpellingSuggestion(
                     word=rag_sugg['suggested_word'],
-                    confidence=rag_sugg['confidence'],
+                    confidence=rag_conf,
                     source="rag",
-                    edit_distance=self._calculate_edit_distance(word, rag_sugg['suggested_word']),
+                    edit_distance=ed,
                     final_score=0.0,
-                    context_score=rag_sugg['confidence']
+                    context_score=rag_conf
                 )
                 all_suggestions.append(suggestion)
         
@@ -614,12 +758,17 @@ class MultiEngineSpellChecker:
         # Sort by final score
         final_suggestions = sorted(unique_suggestions.values(), key=lambda x: x.final_score, reverse=True)
         
-        # Determine best correction
+        # Determine best correction and adjust correctness if only suggestion sources fired
         corrected_text = None
         confidence = None
         if final_suggestions:
-            corrected_text = final_suggestions[0].word
-            confidence = final_suggestions[0].final_score
+            top = final_suggestions[0]
+            # Only accept as correction if the final score is reasonable
+            if top.final_score is not None and top.final_score >= 0.3 and top.word.lower() != word.lower():
+                corrected_text = top.word
+                confidence = top.final_score
+                if is_correct:
+                    is_correct = False
         
         processing_time = (time.time() - start_time) * 1000
         
@@ -666,19 +815,36 @@ class MultiEngineSpellChecker:
         transformer_correction = None
         transformer_confidence = 0.0
         
-        if self.transformer_corrector and total_corrections > 0:
+        # Always attempt a transformer-based sentence correction when available
+        if self.transformer_corrector:
             try:
-                # For T5 models, we might need to prefix with "correct: "
-                input_text = f"correct: {sentence}"
-                transformer_result = self.transformer_corrector(input_text, max_length=512, num_return_sequences=1)
-                if transformer_result:
-                    transformer_correction = transformer_result[0]['generated_text']
-                    # Calculate confidence based on how different it is from original
-                    similarity = 1.0 - (self._calculate_edit_distance(sentence, transformer_correction) / max(len(sentence), len(transformer_correction)))
-                    transformer_confidence = similarity
+                # Different models may expect different prefixes; try without and with a prefix
+                inputs_to_try = [sentence, f"correct: {sentence}", f"fix: {sentence}"]
+                best_text = None
+                best_conf = -1.0
+                for input_text in inputs_to_try:
+                    transformer_result = self.transformer_corrector(input_text, max_length=512, num_return_sequences=1)
+                    if transformer_result and 'generated_text' in transformer_result[0]:
+                        candidate = transformer_result[0]['generated_text']
+                        # Confidence based on similarity to original (higher is better), but prefer meaningful changes
+                        denom = max(len(sentence), len(candidate)) or 1
+                        similarity = 1.0 - (self._calculate_edit_distance(sentence, candidate) / denom)
+                        # Encourage changes by slightly penalizing exact matches
+                        adjusted_conf = similarity - (0.05 if candidate.strip() == sentence.strip() else 0.0)
+                        if adjusted_conf > best_conf:
+                            best_conf = adjusted_conf
+                            best_text = candidate
+                if best_text is not None:
+                    transformer_correction = best_text
+                    transformer_confidence = max(0.0, min(1.0, best_conf))
             except Exception as e:
                 logger.warning(f"Transformer correction error: {e}")
         
+        # Apply brand casing rules on outputs
+        corrected_sentence = self.enforce_brand_casing(corrected_sentence)
+        if transformer_correction:
+            transformer_correction = self.enforce_brand_casing(transformer_correction)
+
         processing_time = (time.time() - start_time) * 1000
         
         return {

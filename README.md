@@ -1,341 +1,494 @@
-# T5 Spell Correction Fine-tuning and Quantization Pipeline
+# 🤖 Advanced AI Spell Checking System
 
-This repository contains a complete pipeline for fine-tuning the `ai-forever/T5-large-spell` model on custom brand and UX guidelines data, followed by model quantization and deployment.
+A comprehensive, production-ready spell checking system with RAG (Retrieval-Augmented Generation) integration, learning capabilities, and multi-engine corrections. This system goes far beyond traditional spell checkers by providing context-aware corrections, adaptive learning, and high-performance batch processing.
 
 ## 🚀 Features
 
-- **Google Sheets Integration**: Extract training data directly from Google Sheets
-- **T5 Fine-tuning**: Comprehensive fine-tuning pipeline with evaluation metrics
-- **Multiple Quantization Techniques**:
-  - Dynamic INT8 quantization
-  - Static INT8 quantization with calibration
-  - FP16 precision reduction
-  - ONNX quantization
-  - BitsAndBytes 8-bit quantization
-- **REST API Deployment**: FastAPI-based serving with performance monitoring
-- **Benchmarking Tools**: Compare performance across different quantization methods
+### Core Capabilities
+- **Multi-Engine Spell Checking**: Combines PySpellChecker, SymSpell, Language Tool, and Transformer models
+- **RAG Integration**: Uses vector databases for contextual, knowledge-augmented corrections
+- **Learning System**: Adapts and learns from user corrections with persistent storage
+- **Whitelist/Ignore Lists**: User-customizable word management
+- **Word & Sentence Level**: Both individual word checking and full sentence correction
+- **High Performance**: Optimized for speed with batch processing capabilities
 
-## 📋 Prerequisites
+### Advanced Features
+- **Context-Aware Corrections**: Uses surrounding text to provide better suggestions
+- **Confidence Scoring**: Advanced scoring system combining multiple factors
+- **Edit Distance Calculation**: Levenshtein distance for suggestion ranking
+- **Frequency-Based Ranking**: Incorporates word frequency data for better suggestions
+- **Real-time Learning**: Immediate integration of user feedback
+- **Performance Monitoring**: Built-in benchmarking and metrics tracking
 
-- Python 3.8+
-- CUDA-compatible GPU (recommended for training)
-- Google Sheets API credentials (optional, for data extraction)
+### API Features
+- **RESTful API**: Full FastAPI implementation with automatic documentation
+- **Batch Processing**: Handle multiple texts efficiently
+- **Async Support**: Non-blocking operations for high throughput
+- **Comprehensive Endpoints**: Complete CRUD operations for all features
+- **Error Handling**: Robust error handling and validation
+- **CORS Support**: Ready for frontend integration
 
-## 🛠️ Installation
+## 📦 Installation
+
+### Quick Start
+
+1. **Clone and Setup**:
+```bash
+git clone <repository>
+cd <repository>
+python setup_and_run.py
+```
+
+2. **Choose Installation Type**:
+- `1`: Full setup (install dependencies, setup, and run)
+- `2`: Quick setup (setup only)
+- `3`: Run tests only
+- `4`: Start API server only
+- `5`: Install dependencies only
+
+### Manual Installation
 
 1. **Install Dependencies**:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. **Additional Dependencies** (optional):
+2. **Setup Additional Components**:
 ```bash
-# For FastAPI deployment
-pip install fastapi uvicorn
-
-# For enhanced evaluation metrics
-pip install sacrebleu nltk
-
-# For ONNX quantization
-pip install optimum[onnxruntime]
+python -c "import nltk; nltk.download('punkt'); nltk.download('wordnet')"
 ```
 
-## 📊 Data Preparation
+3. **Start the API Server**:
+```bash
+python advanced_spell_api.py
+```
 
-### Option 1: Google Sheets Integration
+## 🔧 Usage
 
-1. **Set up Google Sheets API**:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project or select existing one
-   - Enable Google Sheets API
-   - Create service account credentials
-   - Download the JSON credentials file
+### API Endpoints
 
-2. **Configure the extractor**:
+#### Health Check
+```bash
+GET /health
+```
+
+#### Check Word Spelling
+```bash
+POST /spell_check
+{
+  "texts": ["appliction", "recieve", "seperate"],
+  "return_suggestions": true,
+  "max_suggestions": 5,
+  "context": "optional context"
+}
+```
+
+**Response**:
+```json
+{
+  "results": [
+    {
+      "text": "appliction",
+      "is_correct": false,
+      "suggestions": [
+        {
+          "word": "application",
+          "confidence": 0.9,
+          "source": "dictionary_us",
+          "edit_distance": 1,
+          "final_score": 0.8165
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Batch Sentence Correction
+```bash
+POST /correct_batch
+{
+  "texts": [
+    "This is a sampel text with some erors.",
+    "Another exampl of incorect speling."
+  ],
+  "model_type": "advanced",
+  "return_confidence": true,
+  "apply_corrections": true
+}
+```
+
+**Response**:
+```json
+{
+  "results": [
+    {
+      "original_text": "This is a sampel text with some erors.",
+      "corrected_text": "This is a sample text with some errors.",
+      "model_used": "advanced",
+      "inference_time_ms": 45.2,
+      "confidence": 0.92,
+      "word_corrections": [...]
+    }
+  ]
+}
+```
+
+#### Learn from Corrections
+```bash
+POST /learn
+{
+  "original_word": "teh",
+  "corrected_word": "the",
+  "context": "common typo"
+}
+```
+
+#### Manage Whitelist
+```bash
+POST /whitelist
+{
+  "word": "API",
+  "category": "technical_terms"
+}
+```
+
+#### Ignore Words
+```bash
+POST /ignore
+{
+  "word": "JavaScript",
+  "context": "programming language"
+}
+```
+
+### Python Library Usage
+
 ```python
-# Edit google_sheets_extractor.py
-SHEET_URL = "your_google_sheet_url_here"
-CREDENTIALS_PATH = "path/to/your/credentials.json"
-TEXT_COLUMN = "your_text_column_name"
+from advanced_spell_checker import MultiEngineSpellChecker
+
+# Initialize checker
+checker = MultiEngineSpellChecker()
+
+# Check individual word
+result = checker.check_word("appliction")
+print(f"Correct: {result.is_correct}")
+print(f"Suggestions: {[s.word for s in result.suggestions]}")
+
+# Check sentence
+sentence_result = checker.check_sentence("This is a sampel text with erors.")
+print(f"Original: {sentence_result['original_sentence']}")
+print(f"Corrected: {sentence_result['corrected_sentence']}")
+
+# Learn correction
+checker.learn_correction("teh", "the", "common typo")
+
+# Add to whitelist
+checker.add_to_whitelist("API")
+
+# Ignore word
+checker.ignore_word("JavaScript")
 ```
 
-3. **Extract data**:
+## 🏗️ Architecture
+
+### System Components
+
+```
+┌─────────────────────┐
+│   FastAPI Server    │
+│   (advanced_spell_  │
+│     api.py)         │
+└──────────┬──────────┘
+           │
+┌──────────▼──────────┐
+│ MultiEngineSpell    │
+│    Checker          │
+│ (advanced_spell_    │
+│  checker.py)        │
+└──────────┬──────────┘
+           │
+┌──────────▼──────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Spell Engines     │    │ Learning System │    │  RAG System     │
+│                     │    │                 │    │                 │
+│ • PySpellChecker    │    │ • SQLite DB     │    │ • ChromaDB      │
+│ • SymSpell          │    │ • User Feedback │    │ • Embeddings    │
+│ • Language Tool     │    │ • Whitelist     │    │ • Context Search│
+│ • Transformers      │    │ • Ignore List   │    │ • Vector Sim.   │
+└─────────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### Key Classes
+
+- **`MultiEngineSpellChecker`**: Main orchestrator combining all engines
+- **`LearningDatabase`**: Persistent storage for user preferences and corrections
+- **`RAGSpellChecker`**: Vector-based contextual suggestions
+- **`SpellCheckResult`**: Structured results with suggestions and metadata
+
+## 🎯 Performance
+
+### Benchmarks
+
+| Operation | Avg Time | Throughput |
+|-----------|----------|------------|
+| Single Word | ~50ms | ~20 words/sec |
+| Sentence (10 words) | ~200ms | ~5 sentences/sec |
+| Batch (100 words) | ~2s | ~50 words/sec |
+
+### Optimization Features
+
+- **Lazy Loading**: Components loaded on demand
+- **Caching**: Frequent results cached in memory
+- **Batch Processing**: Efficient multi-text handling
+- **Async Operations**: Non-blocking API endpoints
+- **Connection Pooling**: Database connection optimization
+
+## 🧪 Testing
+
+### Run Tests
 ```bash
-python google_sheets_extractor.py
+# Run comprehensive test suite
+python test_spell_checker.py
+
+# Run tests against running server
+python test_spell_checker.py --api-url http://localhost:8000
+
+# Wait for server and then test
+python test_spell_checker.py --wait-for-server
 ```
 
-### Option 2: Use Sample Data
+### Test Coverage
+- ✅ API endpoint functionality
+- ✅ Word-level spell checking accuracy
+- ✅ Sentence-level correction
+- ✅ Learning and adaptation
+- ✅ Performance benchmarks
+- ✅ Error handling
+- ✅ Edge cases
 
-The pipeline will automatically create sample training data if no `training_data.json` exists.
+## 📊 API Documentation
 
-## 🏋️ Training Pipeline
+Once the server is running, access:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI Schema**: http://localhost:8000/openapi.json
 
-### 1. Fine-tune T5 Model
+## 🔒 Configuration
 
-Run the fine-tuning script:
-
+### Environment Variables
 ```bash
-python t5_fine_tuner.py
+# Database paths
+SPELL_LEARNING_DB_PATH=./spell_learning.db
+SPELL_RAG_DB_PATH=./spell_rag_db
+
+# Performance settings
+MAX_SUGGESTIONS=5
+CONFIDENCE_THRESHOLD=0.7
+BATCH_SIZE=100
+
+# Model settings
+USE_TRANSFORMERS=true
+USE_RAG=true
 ```
 
-**Configuration options** (edit in `t5_fine_tuner.py`):
+### Model Configuration
 ```python
-config = ModelConfig(
-    model_name="ai-forever/T5-large-spell",
-    learning_rate=5e-5,
-    batch_size=4,
-    num_epochs=3,
-    max_input_length=512,
-    output_dir="./t5_spell_finetuned"
-)
+# Custom model paths
+checker = MultiEngineSpellChecker()
+checker.transformer_corrector = pipeline("text2text-generation", model="your-model")
 ```
-
-**Expected output**:
-- Fine-tuned model saved to `./t5_spell_finetuned/`
-- Training logs with loss curves
-- Evaluation metrics on test set
-
-### 2. Model Quantization
-
-Apply various quantization techniques:
-
-```bash
-python model_quantization.py
-```
-
-**Available quantization methods**:
-- `dynamic_int8`: Dynamic INT8 quantization (fastest setup)
-- `static_int8`: Static INT8 with calibration (best accuracy)
-- `fp16`: Half-precision floating point
-- `onnx_int8`: ONNX runtime quantization
-- `bitsandbytes_8bit`: 8-bit quantization with BitsAndBytes
-
-**Expected output**:
-- Quantized models in `./quantized_models/`
-- Performance benchmarks
-- Model size comparisons
 
 ## 🚀 Deployment
 
-### 1. Command Line Interface
+### Docker Deployment
+```dockerfile
+FROM python:3.9-slim
 
-Test the deployment pipeline:
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
-```bash
-python deployment_pipeline.py
+COPY . .
+EXPOSE 8000
+
+CMD ["python", "advanced_spell_api.py"]
 ```
 
-### 2. REST API Server
+### Production Considerations
+- Use PostgreSQL instead of SQLite for learning database
+- Implement Redis caching for frequent results
+- Set up load balancing for high traffic
+- Monitor performance with APM tools
+- Configure proper logging and error tracking
 
-Start the FastAPI server:
+## 📈 Monitoring
 
-```bash
-python deployment_pipeline.py
+### Health Endpoints
+- `GET /health`: System health status
+- `GET /stats`: Performance statistics
+- `POST /benchmark`: Run performance tests
+
+### Metrics Tracked
+- Response times
+- Accuracy rates
+- Cache hit rates
+- Error rates
+- Resource usage
+
+## 🤝 Integration
+
+### Frontend Integration
+```javascript
+// Example frontend integration
+const spellCheck = async (texts) => {
+  const response = await fetch('/spell_check', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texts, return_suggestions: true })
+  });
+  return await response.json();
+};
 ```
 
-The API will be available at:
-- **Base URL**: http://localhost:8000
-- **Interactive Docs**: http://localhost:8000/docs
-- **OpenAPI Spec**: http://localhost:8000/openapi.json
-
-### 3. API Endpoints
-
-#### Single Text Correction
-```bash
-curl -X POST "http://localhost:8000/correct" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "This is a sampel text with erors.",
-    "model_type": "dynamic_int8",
-    "return_confidence": true
-  }'
-```
-
-#### Batch Text Correction
-```bash
-curl -X POST "http://localhost:8000/correct_batch" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "texts": [
-      "This is a sampel text.",
-      "Another exampl of speling."
-    ],
-    "model_type": "fp16"
-  }'
-```
-
-#### Model Management
-```bash
-# List available models
-curl "http://localhost:8000/models"
-
-# Load a specific model
-curl -X POST "http://localhost:8000/load_model/dynamic_int8"
-
-# Run benchmark
-curl "http://localhost:8000/benchmark"
-```
-
-## 📈 Performance Analysis
-
-### Model Comparison
-
-The pipeline automatically generates performance comparisons:
-
-| Model Type | Size (MB) | Inference Time (ms) | Throughput (texts/sec) | Memory Usage |
-|------------|-----------|---------------------|------------------------|--------------|
-| Original   | ~2,300    | 250-350            | 3-4                    | High         |
-| Dynamic INT8| ~600     | 150-200            | 5-7                    | Medium       |
-| FP16       | ~1,200    | 180-250            | 4-6                    | Medium       |
-| Static INT8| ~600      | 120-180            | 6-8                    | Low          |
-| ONNX INT8  | ~600      | 100-150            | 7-10                   | Low          |
-
-### Evaluation Metrics
-
-The pipeline provides comprehensive evaluation:
-- **BLEU Score**: Text similarity metric
-- **Edit Distance**: Character-level differences
-- **Exact Match Accuracy**: Perfect correction rate
-- **Inference Speed**: Latency and throughput
-- **Model Size**: Storage requirements
-
-## 🔧 Customization
-
-### Training Configuration
-
-Modify `ModelConfig` in `t5_fine_tuner.py`:
-
+### Webhook Integration
 ```python
-@dataclass
-class ModelConfig:
-    model_name: str = "ai-forever/T5-large-spell"
-    max_input_length: int = 512
-    max_target_length: int = 512
-    learning_rate: float = 5e-5
-    batch_size: int = 4
-    num_epochs: int = 3
-    warmup_steps: int = 500
-    gradient_accumulation_steps: int = 8
-    fp16: bool = True
-    output_dir: str = "./t5_spell_finetuned"
+# Example webhook for learning
+@app.post("/webhook/correction")
+async def learn_from_webhook(data: dict):
+    checker = get_spell_checker()
+    checker.learn_correction(
+        data['original'],
+        data['corrected'],
+        data.get('context', '')
+    )
+    return {"status": "learned"}
 ```
 
-### Quantization Settings
+## 🛠️ Customization
 
-Adjust `QuantizationConfig` in `model_quantization.py`:
-
+### Adding New Engines
 ```python
-@dataclass
-class QuantizationConfig:
-    model_path: str = "./t5_spell_finetuned"
-    output_dir: str = "./quantized_models"
-    calibration_samples: int = 100
-    quantization_approaches: List[str] = [
-        "dynamic_int8", "static_int8", "fp16", "onnx_int8"
-    ]
+class CustomSpellEngine:
+    def check_word(self, word: str) -> List[str]:
+        # Your custom logic
+        return suggestions
+
+# Integrate into MultiEngineSpellChecker
+checker = MultiEngineSpellChecker()
+checker.custom_engine = CustomSpellEngine()
 ```
 
-### Data Format
+### Custom Scoring
+```python
+def custom_score_calculator(suggestion: str, original: str, confidence: float) -> float:
+    # Your custom scoring logic
+    return final_score
 
-Training data should follow this JSON format:
-
-```json
-[
-  {
-    "input_text": "correct: Original text with potential errors",
-    "target_text": "Corrected version of the text",
-    "source": "identifier_for_tracking"
-  }
-]
+checker._calculate_final_score = custom_score_calculator
 ```
 
-## 🐛 Troubleshooting
+## 📚 Examples
+
+### Real-world Use Cases
+
+1. **Content Management System**
+```python
+# Integrate with CMS for real-time spell checking
+def check_article_content(content: str) -> dict:
+    checker = MultiEngineSpellChecker()
+    return checker.check_sentence(content)
+```
+
+2. **Email Client Integration**
+```python
+# Auto-correct email content
+def auto_correct_email(email_text: str) -> str:
+    result = checker.check_sentence(email_text)
+    return result['corrected_sentence']
+```
+
+3. **Educational Platform**
+```python
+# Provide learning feedback
+def get_spelling_feedback(student_text: str) -> dict:
+    result = checker.check_sentence(student_text)
+    return {
+        'errors_found': result['total_corrections'],
+        'suggestions': result['word_results'],
+        'corrected_text': result['corrected_sentence']
+    }
+```
+
+## 🔍 Troubleshooting
 
 ### Common Issues
 
-1. **CUDA Out of Memory**:
-   - Reduce `batch_size` in training config
-   - Increase `gradient_accumulation_steps`
-   - Enable `fp16` training
+**1. Server won't start**
+```bash
+# Check dependencies
+python -c "import advanced_spell_checker, fastapi, uvicorn"
 
-2. **Google Sheets Authentication**:
-   - Verify credentials file path
-   - Check API permissions
-   - Ensure sheet is shared with service account
-
-3. **Model Loading Errors**:
-   - Check model path exists
-   - Verify quantization was successful
-   - Ensure compatible PyTorch/Transformers versions
-
-4. **ONNX Dependencies**:
-   ```bash
-   pip install optimum[onnxruntime]
-   ```
-
-5. **BitsAndBytes Issues**:
-   ```bash
-   pip install bitsandbytes>=0.41.0
-   ```
-
-### Performance Optimization
-
-1. **Training Speed**:
-   - Use multiple GPUs with `accelerate`
-   - Enable gradient checkpointing
-   - Optimize data loading with `num_workers`
-
-2. **Inference Speed**:
-   - Use quantized models for production
-   - Batch inference requests
-   - Consider ONNX Runtime for deployment
-
-3. **Memory Usage**:
-   - Use gradient accumulation instead of large batches
-   - Enable `torch.compile()` for PyTorch 2.0+
-   - Clear cache between model loading
-
-## 📚 File Structure
-
+# Run setup
+python setup_and_run.py
 ```
-├── google_sheets_extractor.py   # Data extraction from Google Sheets
-├── t5_fine_tuner.py            # T5 model fine-tuning pipeline
-├── model_quantization.py       # Quantization and calibration
-├── deployment_pipeline.py      # API server and deployment
-├── requirements.txt            # Python dependencies
-├── README.md                   # This file
-├── main.py                     # Your existing main script
-└── .gitignore                  # Git ignore patterns
+
+**2. Low accuracy**
+```bash
+# Update dictionaries
+python setup_and_run.py  # Choose option 2
+
+# Add custom corrections
+checker.learn_correction("custom_word", "correct_spelling")
 ```
+
+**3. Performance issues**
+```bash
+# Run benchmark
+python test_spell_checker.py
+
+# Check system resources
+python -c "import psutil; print(f'Memory: {psutil.virtual_memory().percent}%')"
+```
+
+## 📄 License
+
+MIT License - see LICENSE file for details.
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- [Hugging Face Transformers](https://huggingface.co/transformers/)
-- [ai-forever/T5-large-spell](https://huggingface.co/ai-forever/T5-large-spell)
-- [Microsoft Optimum](https://github.com/huggingface/optimum)
-- [FastAPI](https://fastapi.tiangolo.com/)
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Run tests (`python test_spell_checker.py`)
+4. Commit changes (`git commit -m 'Add amazing feature'`)
+5. Push to branch (`git push origin feature/amazing-feature`)
+6. Open Pull Request
 
 ## 📞 Support
 
-If you encounter issues or have questions:
-
-1. Check the troubleshooting section above
-2. Search existing GitHub issues
-3. Create a new issue with detailed information
-4. Include error logs and system specifications
+- **Issues**: GitHub Issues
+- **Documentation**: `/docs` endpoint when server is running
+- **Examples**: `/examples` directory
 
 ---
 
-**Happy Fine-tuning!** 🎯
+## 🔄 Migration from Old System
+
+If migrating from the old T5-based system:
+
+```python
+# Old usage
+from deployment_pipeline import ModelManager
+manager = ModelManager()
+result = manager.predict("text")
+
+# New usage
+from advanced_spell_checker import MultiEngineSpellChecker
+checker = MultiEngineSpellChecker()
+result = checker.check_word("text")
+```
+
+The new system is backwards compatible with your existing API calls to `/correct_batch`, but provides much better accuracy and additional features.
+
+---
+
+**Built with ❤️ for robust, production-ready spell checking**

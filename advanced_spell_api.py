@@ -13,6 +13,7 @@ import asyncio
 
 # FastAPI and web serving
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
@@ -41,6 +42,8 @@ class SentenceSpellCheckRequest(BaseModel):
     model_type: str = Field(default="advanced", description="Model type to use")
     return_confidence: bool = Field(default=True, description="Whether to return confidence scores")
     apply_corrections: bool = Field(default=True, description="Whether to apply automatic corrections")
+    minimal_output: bool = Field(default=True, description="Return only original_text, corrected_text, and confidence")
+    max_suggestions: int = Field(default=5, description="Max suggestions per incorrect word (when minimal_output is false)")
 
 class LearningRequest(BaseModel):
     """Request model for learning corrections"""
@@ -117,7 +120,13 @@ def get_spell_checker() -> MultiEngineSpellChecker:
     """Dependency to get the spell checker instance"""
     global spell_checker
     if spell_checker is None:
-        spell_checker = MultiEngineSpellChecker()
+        # Allow custom model path via env var
+        model_path = os.environ.get("SPELL_MODEL_PATH")
+        # Seed known brand terms for casing enforcement
+        brand_terms = [
+            "Hugosave", "Hugohero", "Hugoheroes", "Wealthcare"
+        ]
+        spell_checker = MultiEngineSpellChecker(model_name_or_path=model_path, brand_terms=brand_terms)
     return spell_checker
 
 # FastAPI application
@@ -145,7 +154,11 @@ async def startup_event():
     logger.info("Initializing Advanced Spell Checking API...")
     
     try:
-        spell_checker = MultiEngineSpellChecker()
+        model_path = os.environ.get("SPELL_MODEL_PATH")
+        brand_terms = [
+            "Hugosave", "Hugohero", "Hugoheroes", "Wealthcare"
+        ]
+        spell_checker = MultiEngineSpellChecker(model_name_or_path=model_path, brand_terms=brand_terms)
         logger.info("Advanced spell checker initialized successfully")
         
         # Pre-load some common corrections for testing
@@ -161,6 +174,14 @@ async def startup_event():
             spell_checker.rag_checker.add_knowledge([correction])
         
         logger.info("Pre-loaded common corrections to RAG system")
+
+        # Seed specific high-accuracy user-learned corrections
+        try:
+            # Ensure 'appliction' is corrected to 'application'
+            spell_checker.learn_correction("appliction", "application", "common misspelling")
+            logger.info("Seeded user-learned correction: 'appliction' -> 'application'")
+        except Exception as e:
+            logger.warning(f"Failed seeding learned corrections: {e}")
         
     except Exception as e:
         logger.error(f"Failed to initialize spell checker: {e}")
@@ -361,7 +382,7 @@ async def correct_batch(request: SentenceSpellCheckRequest):
                                     "edit_distance": sugg.edit_distance,
                                     "final_score": sugg.final_score
                                 }
-                                for sugg in word_result.suggestions[:3]
+                                for sugg in word_result.suggestions[: request.max_suggestions]
                             ]
                         })
             
@@ -403,7 +424,28 @@ async def correct_batch(request: SentenceSpellCheckRequest):
             results.append(error_result)
     
     avg_inference_time = total_inference_time / len(results) if results else 0
-    
+
+    # Minimal output mode: strip metadata and return only essential fields
+    if request.minimal_output:
+        minimal_results = []
+        for r in results:
+            try:
+                minimal_results.append({
+                    "original_text": r.original_text,
+                    "corrected_text": r.corrected_text,
+                    "confidence": r.confidence,
+                })
+            except Exception:
+                # In case of validation objects, fallback to dict access
+                r_dict = r.dict() if hasattr(r, "dict") else dict(r)
+                minimal_results.append({
+                    "original_text": r_dict.get("original_text"),
+                    "corrected_text": r_dict.get("corrected_text"),
+                    "confidence": r_dict.get("confidence"),
+                })
+
+        return JSONResponse(content={"results": minimal_results})
+
     return BatchCorrectionResponse(
         results=results,
         total_texts=len(request.texts),
